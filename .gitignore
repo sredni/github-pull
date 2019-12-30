@@ -1,3 +1,4 @@
 /config/*
 !/config/dev.yaml
 /.idea
+/github_pull

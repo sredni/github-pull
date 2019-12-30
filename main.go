@@ -29,9 +29,9 @@ type GithubRequest struct {
 }
 
 func main() {
-	flag.Parse()
-	var ConfigFile = flag.String("config_file", "config/dev.yaml", "Path to the YAML file containing the configuration.")
 	var config Config
+	var ConfigFile = flag.String("config_file", "config/dev.yaml", "Path to the YAML file containing the configuration.")
+	flag.Parse()
 	err := getConfigFromPath(*ConfigFile, &config)
 	if err != nil {
 		log.Fatalf("Failed to read the conf file %s: %v", *ConfigFile, err)
@@ -51,7 +51,7 @@ func handlePull(cfg Config) gin.HandlerFunc {
 			ctx.Status(http.StatusBadRequest)
 			return
 		}
-		if cfg.Secret != "" && !isRequestValid(cfg, body, ctx.GetHeader("HTTP_X_HUB_SIGNATURE")) {
+		if cfg.Secret != "" && !isRequestValid(cfg, body, ctx.GetHeader("X-HUB-SIGNATURE")) {
 			ctx.Status(http.StatusBadRequest)
 			return
 		}
@@ -69,15 +69,15 @@ func handlePull(cfg Config) gin.HandlerFunc {
 			return
 		}
 
-		cmd := exec.Command("/bin/sh", "-ctx", fmt.Sprintf(
-			"cd %s; git checkout %s; git pull %s %s",
+		cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf(
+			"cd %[1]s; git checkout %[3]s; git pull %[2]s %[3]s",
 			cfg.Path,
-			cfg.Branch,
 			cfg.Remote,
 			cfg.Branch,
 		))
 		err = cmd.Start()
 		if err != nil {
+			log.Print(err)
 			ctx.Status(http.StatusInternalServerError)
 			return
 		}
@@ -100,7 +100,7 @@ func getConfigFromPath(configFilePath string, config interface{}) error {
 func isRequestValid(cfg Config, body []byte, header string) bool {
 	h := hmac.New(sha1.New, []byte(cfg.Secret))
 	h.Write(body)
-	sha := "sha1=" + hex.EncodeToString(h.Sum(nil))
+	sha := hex.EncodeToString(h.Sum(nil))
 
-	return sha == header
+	return hmac.Equal([]byte(sha), []byte(header[5:]))
 }

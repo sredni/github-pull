@@ -1,3 +1,4 @@
+secret: mysupersecretsecret
 port: 80
 path: ./test
 remote: origin
